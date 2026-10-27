@@ -151,3 +151,4 @@ npm start
 - [Next.js 공식 설치 안내](https://nextjs.org/docs/app/getting-started/installation)
 - [Node.js SQLite 공식 문서](https://nodejs.org/api/sqlite.html)
 - 기능 기준: PRD.md / 개발 지침: AGENTS.md
+# -
