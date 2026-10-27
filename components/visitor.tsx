@@ -150,8 +150,8 @@ export function Visitor() {
   useEffect(() => {
     if (!ready || step === 4) return;
     const timer = window.setTimeout(() => {
-      void saveDraft(currentDraft()).catch(() => {
-        setError('임시 저장에 실패했습니다. 다시 시도해 주세요.');
+      void saveDraft(currentDraft()).catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : '임시 저장에 실패했습니다. 다시 시도해 주세요.');
       });
     }, 400);
     return () => window.clearTimeout(timer);
@@ -192,8 +192,8 @@ export function Visitor() {
     }
     try {
       await saveDraft(currentDraft(step + 1));
-    } catch {
-      setError('임시 저장에 실패했습니다. 다시 시도해 주세요.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '임시 저장에 실패했습니다. 다시 시도해 주세요.');
       return;
     }
     setStep((s) => s + 1);

@@ -35,13 +35,13 @@ export const canProceedToPrivacy = (
 };
 export const privacyText =
   '수집·이용 목적: 신원 확인, 출입관리, 안전교육 이력 및 작업이력 관리, 비상연락. 수집 항목: 회사명, 성명, 연락처, 작업기간, 방문 목적, 작업발주 담당자, 교육 이력, 안전서약 기록 및 전자서명. 보유기간: 작업 종료일로부터 1년(운영 전 확정 필요). 동의를 거부할 권리가 있으며, 동의하지 않으면 본 시스템에서 출입등록을 제출할 수 없습니다.';
-export const todayKST = () =>
+export const todayKST = (at = new Date()) =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date());
+  }).format(at);
 const short = z.string().trim().min(1, '필수 항목입니다.').max(100, '100자 이내로 입력하세요.');
 const day = z
   .string()

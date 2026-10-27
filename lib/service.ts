@@ -195,6 +195,7 @@ export async function get(req: NextRequest, path: string[]) {
       .get(owner, Date.now()) as { data: string } | undefined;
     if (!row) return json({ draft: null });
     const draft = draftSchema.parse(decrypt(row.data));
+    if (draft.step > 0 && !refinedBasic.safeParse(draft.basic).success) draft.step = 0;
     if (
       draft.step > 1 &&
       (!allSafetyRulesChecked(draft.safetyChecks) ||
@@ -322,6 +323,7 @@ export async function mutate(req: NextRequest, path: string[]) {
     if (req.method === 'PUT') {
       limit('draft:' + owner, 300, 3600000);
       const draft = draftSchema.parse(input);
+      if (draft.step > 0) refinedBasic.parse(draft.basic);
       if (draft.step > 1) {
         requireAllVideosClicked(owner);
         if (!allSafetyRulesChecked(draft.safetyChecks) || !draft.pledge)

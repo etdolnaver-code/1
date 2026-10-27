@@ -12,6 +12,7 @@ import {
   emptySafetyChecks,
   educationProgress,
   canProceedToPrivacy,
+  todayKST,
 } from '../lib/domain.ts';
 const basic = {
   startDate: '2026-10-15',
@@ -54,6 +55,10 @@ test('교육 이수일과 본인 확인 검증', () => {
       educationCertificateContact: '시험담당자',
     }).success,
   );
+});
+test('집계 기준일은 UTC 경계에서도 서울 날짜를 사용', () => {
+  assert.equal(todayKST(new Date('2026-10-26T14:59:00.000Z')), '2026-10-26');
+  assert.equal(todayKST(new Date('2026-10-26T15:00:00.000Z')), '2026-10-27');
 });
 test('빈 서명, 점만 찍기, 범위 밖 좌표 거부', () => {
   assert.equal(signatureSchema.safeParse([]).success, false);

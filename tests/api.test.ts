@@ -147,6 +147,33 @@ test('실제 HTTP·SQLite 인증 및 등록 통합 검증', { timeout: 180000 },
     assert.equal((await call('registrations', { ...payload, consent: false })).status, 400);
     assert.equal((await call('registrations', { ...payload, signature: [] })).status, 400);
   });
+  await t.test('첫 단계의 유효한 교육 예정일은 저장하고 잘못된 출처는 거부', async () => {
+    const draft = {
+      basic,
+      step: 1,
+      pledge: false,
+      safetyChecks: [false, false, false, false, false, false, false],
+      attested: false,
+      educationPledged: false,
+      consent: null,
+      requestId: randomUUID(),
+    };
+    const denied = await call('draft', draft, {
+      method: 'PUT',
+      origin: 'https://other.example',
+    });
+    assert.equal(denied.status, 403);
+    assert.match((await denied.json()).error, /현재 사이트 주소/);
+    const missingDate = { ...draft, basic: { ...basic, educationDate: '' } };
+    assert.equal((await call('draft', { ...missingDate, step: 0 }, { method: 'PUT' })).status, 200);
+    const invalid = await call('draft', missingDate, { method: 'PUT' });
+    assert.equal(invalid.status, 400);
+    assert.equal((await invalid.json()).error, '교육 예정일을 입력하세요.');
+    assert.equal((await call('draft', draft, { method: 'PUT' })).status, 200);
+    const restored = await (await call('draft')).json();
+    assert.equal(restored.draft.step, 1);
+    assert.equal(restored.draft.basic.educationDate, basic.educationDate);
+  });
   await t.test('동시 중복 제출은 하나의 DB 레코드와 접수번호로 처리', async () => {
     const responses = await Promise.all([
       call('registrations', payload),

@@ -6,17 +6,30 @@ export class HttpError extends Error {
   constructor(
     public status: number,
     message: string,
+    public diagnosticCode?: string,
   ) {
     super(message);
   }
 }
-export function fail(status: number, message: string): never {
-  throw new HttpError(status, message);
+export function fail(status: number, message: string, diagnosticCode?: string): never {
+  throw new HttpError(status, message, diagnosticCode);
 }
 export function origin(req: NextRequest) {
   const allowed = process.env.APP_ORIGIN;
-  if (!allowed) fail(503, '서버 주소 설정이 필요합니다.');
-  if (req.headers.get('origin') !== new URL(allowed).origin) fail(403, '허용되지 않은 요청입니다.');
+  if (!allowed)
+    fail(503, '서버 주소 설정이 필요합니다. 관리자에게 문의해 주세요.', 'APP_ORIGIN_MISSING');
+  let expected: string;
+  try {
+    expected = new URL(allowed).origin;
+  } catch {
+    fail(503, '서버 주소 설정을 확인해야 합니다. 관리자에게 문의해 주세요.', 'APP_ORIGIN_INVALID');
+  }
+  if (req.headers.get('origin') !== expected)
+    fail(
+      403,
+      '현재 사이트 주소에서 요청을 처리할 수 없습니다. 관리자에게 문의해 주세요.',
+      'ORIGIN_MISMATCH',
+    );
 }
 export async function body(req: NextRequest) {
   origin(req);
