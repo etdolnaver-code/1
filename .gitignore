@@ -1,0 +1,12 @@
+node_modules/
+.next/
+data/
+.env*
+!.env.example
+*.tsbuildinfo
+artifacts/
+tmp/
+.npm-cache/
+
+/*.png
+/44. 개선1/
