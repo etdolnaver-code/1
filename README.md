@@ -148,6 +148,8 @@ npm start
 
 현재 `lib/db.ts`는 `DATABASE_PATH`의 로컬 SQLite 파일에 등록정보, 임시 저장, 세션, 영상 클릭, 요청 제한 및 감사로그를 저장합니다. [Vercel의 SQLite 안내](https://vercel.com/kb/guide/is-sqlite-supported-in-vercel)에 따르면 함수의 로컬 저장소는 영속적이지 않으며 인스턴스 간 공유되지 않습니다. `DATABASE_PATH`를 `/tmp`로 바꾸거나 환경변수만 추가해서는 안전하게 운영할 수 없습니다. Vercel에서 사용하려면 이 데이터 전체와 트랜잭션을 영속적인 외부 DB로 이전하고 마이그레이션과 백업을 확인해야 합니다.
 
+현재 코드로 Vercel에서 실행하면 DB 초기화 전에 HTTP 503을 반환하고, 서버 로그에 `reason: VERCEL_LOCAL_SQLITE_UNSUPPORTED`와 오류 번호를 남깁니다. 첫 화면에서 저장이 불가능한 상태를 명확히 안내하며, 입력 검증이나 임시 저장을 건너뛰어 단계를 진행시키지 않습니다. 이 응답은 외부 DB 이전 전까지 정상 등록이 불가능하다는 뜻입니다.
+
 외부 DB 이전 후에도 배포 환경에는 `APP_ORIGIN`(접속하는 HTTPS 주소), `DATA_ENCRYPTION_KEY`(기존 데이터와 동일한 32바이트 hex 키), `INITIAL_ADMIN_PASSWORD`(최초 관리자 생성 시), `COOKIE_SECURE=true`를 설정해야 합니다. `TRUST_PROXY`는 신뢰하는 프록시가 클라이언트 IP 헤더를 덮어쓰는 경우에만 `true`로 설정합니다. 미리보기 URL은 운영 도메인과 Origin이 다르므로 별도로 검증해야 합니다. [Vercel 환경변수 문서](https://vercel.com/docs/environment-variables)에 따라 변수 변경 후 새 배포를 생성해야 적용됩니다.
 
 직접 서명은 동의문/시각/최초 정보와 함께 보존하며, 공인 전자서명 인증 서비스 연동은 포함하지 않습니다. 실제 교육 확인은 교육대장 등 근거를 확인해 관리자가 기록합니다.
@@ -157,4 +159,5 @@ npm start
 - [Next.js 공식 설치 안내](https://nextjs.org/docs/app/getting-started/installation)
 - [Node.js SQLite 공식 문서](https://nodejs.org/api/sqlite.html)
 - 기능 기준: PRD.md / 개발 지침: AGENTS.md
+
 # -

@@ -10,6 +10,13 @@ import {
   createHash,
 } from 'node:crypto';
 let singleton: DatabaseSync | undefined;
+export class StorageConfigurationError extends Error {
+  readonly diagnosticCode: string;
+  constructor(diagnosticCode: string) {
+    super('Persistent data storage is not available');
+    this.diagnosticCode = diagnosticCode;
+  }
+}
 export function hash(value: string) {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -27,7 +34,7 @@ export function passwordMatches(password: string, stored: string) {
 function key() {
   const raw = process.env.DATA_ENCRYPTION_KEY ?? '';
   if (!/^[a-fA-F0-9]{64}$/.test(raw))
-    throw new Error('DATA_ENCRYPTION_KEY must contain 32 bytes of hex');
+    throw new StorageConfigurationError('DATA_ENCRYPTION_KEY_INVALID');
   return Buffer.from(raw, 'hex');
 }
 export function encrypt(value: unknown) {
@@ -48,6 +55,8 @@ export function decrypt<T>(value: string): T {
 }
 export function db() {
   if (singleton) return singleton;
+  if (process.env.VERCEL === '1' || process.env.VERCEL_ENV)
+    throw new StorageConfigurationError('VERCEL_LOCAL_SQLITE_UNSUPPORTED');
   key();
   const path = resolve(
     /* turbopackIgnore: true */ process.env.DATABASE_PATH ?? './data/mbco.sqlite',
@@ -76,7 +85,7 @@ CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY AUTOINCREMENT,at TEXT NO
   d.exec('PRAGMA user_version=3');
   if (!d.prepare('SELECT id FROM admins LIMIT 1').get()) {
     const initial = process.env.INITIAL_ADMIN_PASSWORD;
-    if (!initial) throw new Error('INITIAL_ADMIN_PASSWORD is required to initialize database');
+    if (!initial) throw new StorageConfigurationError('INITIAL_ADMIN_PASSWORD_MISSING');
     d.prepare('INSERT INTO admins VALUES(?,?,?,?)').run('admin', passwordHash(initial), 'ADMIN', 1);
   }
   singleton = d;

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
 import { get, mutate } from '@/lib/service';
+import { StorageConfigurationError } from '@/lib/db';
 import { formIssueMessage } from '@/lib/domain';
 import { HttpError, json } from '@/lib/security';
 export const runtime = 'nodejs';
@@ -25,7 +26,14 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
     return req.method === 'GET' ? await get(req, path) : await mutate(req, path);
   } catch (e) {
     const reference = randomUUID();
-    const status = e instanceof HttpError ? e.status : e instanceof ZodError ? 400 : 500;
+    const status =
+      e instanceof HttpError
+        ? e.status
+        : e instanceof ZodError
+          ? 400
+          : e instanceof StorageConfigurationError
+            ? 503
+            : 500;
     const systemCode =
       e instanceof Error &&
       'code' in e &&
@@ -38,12 +46,9 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
         ? (e.diagnosticCode ?? `HTTP_${e.status}`)
         : e instanceof ZodError
           ? 'INPUT_VALIDATION'
-          : e instanceof Error && e.message === 'DATA_ENCRYPTION_KEY must contain 32 bytes of hex'
-            ? 'DATA_ENCRYPTION_KEY_INVALID'
-            : e instanceof Error &&
-                e.message === 'INITIAL_ADMIN_PASSWORD is required to initialize database'
-              ? 'INITIAL_ADMIN_PASSWORD_MISSING'
-              : (systemCode ?? 'UNEXPECTED');
+          : e instanceof StorageConfigurationError
+            ? e.diagnosticCode
+            : (systemCode ?? 'UNEXPECTED');
     console.error(
       JSON.stringify({
         event: 'api_failure',
@@ -55,6 +60,14 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
       }),
     );
     if (e instanceof HttpError) return json({ error: e.message, reference }, e.status);
+    if (e instanceof StorageConfigurationError)
+      return json(
+        {
+          error: `데이터 저장소를 사용할 수 없어 입력 내용을 저장할 수 없습니다. 관리자에게 문의해 주세요. (오류 번호: ${reference})`,
+          reference,
+        },
+        503,
+      );
     if (e instanceof ZodError)
       return json(
         {
