@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
 import { get, mutate } from '@/lib/service';
+import { formIssueMessage } from '@/lib/domain';
 import { HttpError, json } from '@/lib/security';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,7 +57,11 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
     if (e instanceof HttpError) return json({ error: e.message, reference }, e.status);
     if (e instanceof ZodError)
       return json(
-        { error: e.issues[0]?.message ?? '입력값을 확인하세요.', fields: e.flatten(), reference },
+        {
+          error: e.issues[0] ? formIssueMessage(e.issues[0]) : '입력값을 확인해 주세요.',
+          fields: e.flatten(),
+          reference,
+        },
         400,
       );
     return json(

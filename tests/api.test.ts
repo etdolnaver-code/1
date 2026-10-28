@@ -146,6 +146,9 @@ test('실제 HTTP·SQLite 인증 및 등록 통합 검증', { timeout: 180000 },
     visitorCookie = boot.headers.get('set-cookie')!.split(';')[0];
     assert.equal((await call('registrations', { ...payload, consent: false })).status, 400);
     assert.equal((await call('registrations', { ...payload, signature: [] })).status, 400);
+    const nullSignature = await call('registrations', { ...payload, signature: null });
+    assert.equal(nullSignature.status, 400);
+    assert.equal((await nullSignature.json()).error, '서명란에 직접 서명해 주세요.');
   });
   await t.test('첫 단계의 유효한 교육 예정일은 저장하고 잘못된 출처는 거부', async () => {
     const draft = {
@@ -169,10 +172,36 @@ test('실제 HTTP·SQLite 인증 및 등록 통합 검증', { timeout: 180000 },
     const invalid = await call('draft', missingDate, { method: 'PUT' });
     assert.equal(invalid.status, 400);
     assert.equal((await invalid.json()).error, '교육 예정일을 입력하세요.');
+    const nullDate = await call(
+      'draft',
+      { ...draft, basic: { ...basic, educationDate: null } },
+      { method: 'PUT' },
+    );
+    assert.equal(nullDate.status, 400);
+    assert.equal((await nullDate.json()).error, '교육일 또는 교육 예정일을 선택해 주세요.');
+    const nullName = await call(
+      'draft',
+      { ...draft, basic: { ...basic, name: null } },
+      { method: 'PUT' },
+    );
+    assert.equal(nullName.status, 400);
+    assert.equal((await nullName.json()).error, '성명을 입력해 주세요.');
+    const invalidPhone = await call(
+      'draft',
+      { ...draft, basic: { ...basic, phone: '010-1234' } },
+      { method: 'PUT' },
+    );
+    assert.equal(invalidPhone.status, 400);
+    assert.equal((await invalidPhone.json()).error, '010-0000-0000 형식으로 입력하세요.');
     assert.equal((await call('draft', draft, { method: 'PUT' })).status, 200);
     const restored = await (await call('draft')).json();
     assert.equal(restored.draft.step, 1);
     assert.equal(restored.draft.basic.educationDate, basic.educationDate);
+    assert.equal((await call('draft', { ...draft, step: 0 }, { method: 'PUT' })).status, 200);
+    const back = await (await call('draft')).json();
+    assert.equal(back.draft.step, 0);
+    assert.deepEqual(back.draft.basic, basic);
+    assert.equal((await call('draft', draft, { method: 'PUT' })).status, 200);
   });
   await t.test('동시 중복 제출은 하나의 DB 레코드와 접수번호로 처리', async () => {
     const responses = await Promise.all([

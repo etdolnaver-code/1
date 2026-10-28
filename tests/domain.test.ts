@@ -13,6 +13,8 @@ import {
   educationProgress,
   canProceedToPrivacy,
   todayKST,
+  collectBasicFieldErrors,
+  formIssueMessage,
 } from '../lib/domain.ts';
 const basic = {
   startDate: '2026-10-15',
@@ -34,6 +36,51 @@ test('기본정보와 연락처/날짜 검증', () => {
   assert.equal(refinedBasic.safeParse({ ...basic, startDate: '2026-02-30' }).success, false);
   assert.equal(refinedBasic.safeParse({ ...basic, phone: 'abc' }).success, false);
   assert.equal(refinedBasic.safeParse({ ...basic, purpose: '기타' }).success, false);
+});
+test('누락·null·형식 오류는 입력란별 안내로 변환', () => {
+  const result = refinedBasic.safeParse({
+    ...basic,
+    company: '',
+    name: null,
+    phone: '010-1234',
+    educationDate: '',
+  });
+  assert.equal(result.success, false);
+  if (result.success) return;
+  const errors = collectBasicFieldErrors(result.error.issues, {
+    ...basic,
+    company: '',
+    name: null,
+    phone: '010-1234',
+    educationDate: '',
+  });
+  assert.equal(errors.company, '소속 회사명을 입력해 주세요.');
+  assert.equal(errors.name, '성명을 입력해 주세요.');
+  assert.equal(errors.phone, '010-0000-0000 형식으로 입력하세요.');
+  assert.equal(errors.educationDate, '교육 예정일을 입력하세요.');
+  const missingEducationDate = refinedBasic.safeParse({ ...basic, educationDate: '' });
+  assert.equal(missingEducationDate.success, false);
+  if (!missingEducationDate.success)
+    assert.equal(
+      collectBasicFieldErrors(missingEducationDate.error.issues).educationDate,
+      '교육 예정일을 입력하세요.',
+    );
+  const missingSignature = registrationSchema.safeParse({
+    basic,
+    pledge: true,
+    safetyChecks: Array(7).fill(true),
+    consent: true,
+    educationAttested: false,
+    educationPledged: true,
+    signature: null,
+    requestId: crypto.randomUUID(),
+  });
+  assert.equal(missingSignature.success, false);
+  if (!missingSignature.success)
+    assert.equal(
+      formIssueMessage(missingSignature.error.issues[0]),
+      '서명란에 직접 서명해 주세요.',
+    );
 });
 test('교육 이수일과 본인 확인 검증', () => {
   assert.equal(refinedBasic.safeParse({ ...basic, educationDate: '' }).success, false);

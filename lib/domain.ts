@@ -119,7 +119,7 @@ export const signatureSchema = z
       .min(2)
       .max(2500),
   )
-  .min(1)
+  .min(1, '서명란에 직접 서명해 주세요.')
   .max(80)
   .refine((strokes) => {
     let length = 0;
@@ -197,6 +197,88 @@ export function youtubeId(value: string) {
   }
 }
 export type Basic = z.infer<typeof basicSchema>;
+export type BasicFieldErrors = Partial<Record<keyof Basic, string>>;
+
+const basicFieldPrompts: Record<keyof Basic, string> = {
+  startDate: '작업 시작일을 선택해 주세요.',
+  endDate: '작업 종료일을 선택해 주세요.',
+  company: '소속 회사명을 입력해 주세요.',
+  name: '성명을 입력해 주세요.',
+  phone: '연락처를 입력해 주세요.',
+  team: '팀명을 입력해 주세요.',
+  contact: '담당자명을 입력해 주세요.',
+  purpose: '방문 목적을 선택해 주세요.',
+  otherPurpose: '기타 방문 목적을 입력해 주세요.',
+  educationCompleted: '안전교육 이수 여부를 선택해 주세요.',
+  educationDate: '교육일 또는 교육 예정일을 선택해 주세요.',
+  educationCertificateContact: '이수증 제출 담당자 성명을 입력해 주세요.',
+};
+
+export function basicFieldFromIssue(issue: z.ZodIssue): keyof Basic | null {
+  const key = issue.path[0] === 'basic' ? issue.path[1] : issue.path[0];
+  return typeof key === 'string' && Object.hasOwn(basicFieldPrompts, key)
+    ? (key as keyof Basic)
+    : null;
+}
+
+export function basicIssueMessage(issue: z.ZodIssue): string {
+  const field = basicFieldFromIssue(issue);
+  if (
+    field &&
+    (issue.message === '필수 항목입니다.' ||
+      issue.message === '날짜를 선택하세요.' ||
+      issue.code === 'invalid_type' ||
+      issue.code === 'invalid_union' ||
+      issue.code === 'invalid_value')
+  )
+    return basicFieldPrompts[field];
+  if (!field && (issue.code === 'invalid_type' || issue.code === 'invalid_union'))
+    return '입력값을 확인해 주세요.';
+  return issue.message;
+}
+
+export function formIssueMessage(issue: z.ZodIssue): string {
+  if (basicFieldFromIssue(issue)) return basicIssueMessage(issue);
+  if (issue.path[0] === 'basic') return '기본정보를 확인해 주세요.';
+  if (issue.path[0] === 'signature') return '서명란에 직접 서명해 주세요.';
+  if (issue.path[0] === 'consent') return '개인정보 수집·이용에 동의해 주세요.';
+  if (issue.path[0] === 'pledge' || issue.path[0] === 'safetyChecks')
+    return '안전수칙 7개 항목을 모두 확인해 주세요.';
+  if (issue.path[0] === 'requestId')
+    return '등록 세션이 만료되었습니다. 페이지를 새로고침해 주세요.';
+  if (issue.code === 'invalid_type' || issue.code === 'invalid_union')
+    return '입력값을 확인해 주세요.';
+  return issue.message;
+}
+
+export function collectBasicFieldErrors(
+  issues: z.ZodIssue[],
+  basic?: Partial<Record<keyof Basic, unknown>>,
+): BasicFieldErrors {
+  const errors: BasicFieldErrors = {};
+  for (const issue of issues) {
+    const field = basicFieldFromIssue(issue);
+    if (field && !errors[field]) errors[field] = basicIssueMessage(issue);
+  }
+  // Zod does not run cross-field refinements when a base field has the wrong type.
+  if (
+    basic?.purpose === '기타' &&
+    (typeof basic.otherPurpose !== 'string' || !basic.otherPurpose.trim())
+  )
+    errors.otherPurpose ??= '방문 목적을 입력하세요.';
+  if (basic && (typeof basic.educationDate !== 'string' || !basic.educationDate))
+    errors.educationDate ??=
+      basic.educationCompleted === true
+        ? '오늘까지의 교육일을 입력하세요.'
+        : '교육 예정일을 입력하세요.';
+  if (
+    basic?.educationCompleted === true &&
+    (typeof basic.educationCertificateContact !== 'string' ||
+      !basic.educationCertificateContact.trim())
+  )
+    errors.educationCertificateContact ??= '이수증 제출 담당자 성명을 입력하세요.';
+  return errors;
+}
 export type Signature = z.infer<typeof signatureSchema>;
 export type Video = {
   id: string;

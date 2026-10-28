@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import type { ZodIssue } from 'zod';
 import {
   ArrowRight,
   ArrowLeft,
@@ -19,10 +20,15 @@ import {
 } from 'lucide-react';
 import {
   Basic,
+  BasicFieldErrors,
   Draft,
   Signature,
   Video,
   refinedBasic,
+  basicIssueMessage,
+  basicFieldFromIssue,
+  collectBasicFieldErrors,
+  formIssueMessage,
   registrationSchema,
   safetyRules,
   emptySafetyChecks,
@@ -45,6 +51,7 @@ type VideoProgress = {
 export function Visitor() {
   const [step, setStep] = useState(0),
     [basic, setBasic] = useState<Basic>(emptyBasic),
+    [basicErrors, setBasicErrors] = useState<BasicFieldErrors>({}),
     [videos, setVideos] = useState<Video[]>([]),
     [clickedVideoIds, setClickedVideoIds] = useState<string[]>([]),
     [completedVideoIds, setCompletedVideoIds] = useState<string[]>([]),
@@ -64,6 +71,26 @@ export function Visitor() {
   const pendingVideoClicks = useRef(new Set<string>());
   const titleRef = useRef<HTMLHeadingElement>(null);
   const pledge = allSafetyRulesChecked(safetyChecks);
+  function showBasicIssues(issues: ZodIssue[]) {
+    const errors = collectBasicFieldErrors(issues, basic);
+    setBasicErrors(errors);
+    const firstBasicIssue = issues.find((issue) => basicFieldFromIssue(issue)) ?? issues[0];
+    setError(firstBasicIssue ? basicIssueMessage(firstBasicIssue) : '기본정보를 확인해 주세요.');
+    const firstField = Object.keys(errors)[0];
+    if (firstField)
+      window.requestAnimationFrame(() => {
+        document.querySelector<HTMLInputElement>(`[name="${firstField}"]`)?.focus();
+      });
+  }
+  function clearBasicError(field: keyof Basic) {
+    setError('');
+    setBasicErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
   const currentDraft = (nextStep = step): Draft => ({
     basic,
     step: nextStep,
@@ -161,9 +188,10 @@ export function Visitor() {
     if (step === 0) {
       const result = refinedBasic.safeParse(basic);
       if (!result.success) {
-        setError(result.error.issues[0].message);
+        showBasicIssues(result.error.issues);
         return;
       }
+      setBasicErrors({});
       if (!basic.educationCompleted) setAttested(false);
     }
     if (step === 1 && !pledge) {
@@ -215,7 +243,10 @@ export function Visitor() {
     };
     const valid = registrationSchema.safeParse(payload);
     if (!valid.success) {
-      setError(valid.error.issues[0].message);
+      if (valid.error.issues.some((issue) => issue.path[0] === 'basic')) {
+        setStep(0);
+        showBasicIssues(valid.error.issues);
+      } else setError(formIssueMessage(valid.error.issues[0]));
       return;
     }
     submitting.current = true;
@@ -226,13 +257,14 @@ export function Visitor() {
       setReceipt(d.receipt);
       setStep(4);
       setBasic(emptyBasic);
+      setBasicErrors({});
       setSafetyChecks(emptySafetyChecks());
       setSignature([]);
       setAttested(false);
       setEducationPledged(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      setError((e as Error).message);
+      setError(e instanceof Error ? e.message : '등록에 실패했습니다. 다시 시도해 주세요.');
     } finally {
       setBusy(false);
       submitting.current = false;
@@ -316,7 +348,12 @@ export function Visitor() {
                 <p className="section-description">
                   원활한 출입과 안전관리를 위해 아래 정보를 정확하게 입력해 주세요.
                 </p>
-                <BasicFields value={basic} onChange={setBasic} />
+                <BasicFields
+                  value={basic}
+                  onChange={setBasic}
+                  onFieldChange={clearBasicError}
+                  errors={basicErrors}
+                />
               </>
             )}
             {step === 1 && (

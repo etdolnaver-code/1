@@ -355,6 +355,17 @@ select:disabled {
 input[type='date'] {
   min-width: 0;
 }
+.form-grid [aria-invalid='true'] {
+  border-color: #d44758;
+}
+.form-grid .field-error {
+  display: block;
+  margin-top: 6px;
+  color: #b63146;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
 input[type='checkbox'],
 input[type='radio'] {
   accent-color: var(--blue);
